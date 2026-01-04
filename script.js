@@ -10,7 +10,6 @@ const firebaseConfig = {
   appId: "1:1000393480842:web:f36db120025c51cf312b73",
 };
 
-// INIT
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
@@ -18,7 +17,7 @@ const db = firebase.firestore();
  * HELPER
  *********************************/
 function getTanggal() {
-  return new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  return new Date().toISOString().split("T")[0];
 }
 
 function getJam() {
@@ -29,26 +28,30 @@ function getJam() {
   });
 }
 
-function setStatus(text, success = false) {
+function setStatus(text, type = "info") {
   const el = document.getElementById("status");
+
   el.innerText = text;
-  el.style.color = success ? "green" : "#b00020";
+
+  if (type === "success") el.style.color = "#2e7d32";
+  else if (type === "error") el.style.color = "#c62828";
+  else if (type === "warning") el.style.color = "#ed6c02";
+  else el.style.color = "#333";
 }
 
 /*********************************
  * CHECK IN
  *********************************/
 function checkIn() {
-  const namaInput = document.getElementById("nama");
-  const nama = namaInput.value.trim();
+  const nama = document.getElementById("nama").value.trim();
 
   if (!nama) {
-    alert("Nama wajib diisi");
+    setStatus("❗ Nama wajib diisi", "warning");
     return;
   }
 
   const tanggal = getTanggal();
-  const docId = `${nama}_${tanggal}`; // 🔑 KUNCI UTAMA
+  const docId = `${nama}_${tanggal}`;
 
   db.collection("attendance")
     .doc(docId)
@@ -60,15 +63,15 @@ function checkIn() {
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     })
     .then(() => {
-      setStatus("✅ Check-in berhasil", true);
+      setStatus("✅ Berhasil check-in", "success");
     })
     .catch((err) => {
       console.error(err);
 
       if (err.code === "permission-denied") {
-        setStatus("❌ Nama tidak terdaftar");
+        setStatus("❌ Nama tidak terdaftar / ID tidak ada di sistem", "error");
       } else {
-        setStatus("❌ Gagal check-in");
+        setStatus("❌ Gagal check-in", "error");
       }
     });
 }
@@ -77,31 +80,27 @@ function checkIn() {
  * CHECK OUT
  *********************************/
 function checkOut() {
-  const namaInput = document.getElementById("nama");
-  const nama = namaInput.value.trim();
+  const nama = document.getElementById("nama").value.trim();
 
   if (!nama) {
-    alert("Nama wajib diisi");
+    setStatus("❗ Nama wajib diisi", "warning");
     return;
   }
 
   const tanggal = getTanggal();
   const docId = `${nama}_${tanggal}`;
-
   const docRef = db.collection("attendance").doc(docId);
 
   docRef
     .get()
     .then((doc) => {
       if (!doc.exists) {
-        setStatus("❌ Belum check-in");
+        setStatus("❌ Belum melakukan check-in", "error");
         return;
       }
 
-      const data = doc.data();
-
-      if (data.checkout) {
-        setStatus("⚠️ Sudah check-out");
+      if (doc.data().checkout) {
+        setStatus("⚠️ Sudah melakukan check-out", "warning");
         return;
       }
 
@@ -110,20 +109,23 @@ function checkOut() {
           checkout: getJam(),
         })
         .then(() => {
-          setStatus("✅ Check-out berhasil", true);
+          setStatus("✅ Berhasil check-out", "success");
         })
         .catch((err) => {
           console.error(err);
 
           if (err.code === "permission-denied") {
-            setStatus("❌ Nama tidak terdaftar");
+            setStatus(
+              "❌ Nama tidak terdaftar / ID tidak ada di sistem",
+              "error"
+            );
           } else {
-            setStatus("❌ Gagal check-out");
+            setStatus("❌ Gagal check-out", "error");
           }
         });
     })
     .catch((err) => {
       console.error(err);
-      setStatus("❌ Gagal mengambil data");
+      setStatus("❌ Terjadi kesalahan", "error");
     });
 }
