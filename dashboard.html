@@ -1,25 +1,26 @@
 <!DOCTYPE html>
 <html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <title>Dashboard Absensi</title>
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Dashboard Absensi</title>
+  </head>
+  <body>
+    <h2>Dashboard Absensi</h2>
 
-<h2>Dashboard Absensi</h2>
+    <p id="userEmail"></p>
+    <p id="status"></p>
 
-<p id="userEmail"></p>
-<p id="status"></p>
+    <button id="checkInBtn">Check In</button>
+    <button id="checkOutBtn" disabled>Check Out</button>
+    <br /><br />
 
-<button id="checkInBtn">Check In</button>
-<button id="checkOutBtn" disabled>Check Out</button>
-<br><br>
+    <a href="admin.html" id="adminLink" style="display: none">
+      Masuk Admin Panel
+    </a>
+    <br /><br />
 
-<a id="adminLink" href="admin.html" style="display:none;">Masuk Admin Panel</a>
-<br><br>
+    <button id="logoutBtn">Logout</button>
 
-<button id="logoutBtn">Logout</button>
-
-<script type="module" src="src/attendance.js"></script>
-</body>
+    <script type="module" src="src/attendance.js"></script>
+  </body>
 </html>

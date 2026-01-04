@@ -12,23 +12,9 @@ import {
   getDocs,
   updateDoc,
   serverTimestamp,
+  doc,
+  getDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-// =====================
-// FORMAT DATETIME
-// =====================
-function formatDateTime(timestamp) {
-  if (!timestamp) return "-";
-
-  const d = timestamp.toDate();
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-
-  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
-}
 
 // =====================
 // ELEMENT
@@ -38,8 +24,28 @@ const statusText = document.getElementById("status");
 const checkInBtn = document.getElementById("checkInBtn");
 const checkOutBtn = document.getElementById("checkOutBtn");
 const logoutBtn = document.getElementById("logoutBtn");
+const adminLink = document.getElementById("adminLink");
 
 let attendanceDocId = null;
+
+// =====================
+// FORMAT
+// =====================
+function formatDateTime(ts) {
+  if (!ts) return "-";
+  const d = ts.toDate();
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+}
+
+function todayString() {
+  const d = new Date();
+  return d.toISOString().split("T")[0]; // YYYY-MM-DD
+}
 
 // =====================
 // AUTH CHECK
@@ -52,21 +58,28 @@ onAuthStateChanged(auth, async (user) => {
 
   userEmail.innerText = `Login sebagai: ${user.email}`;
 
-  const today = new Date().toISOString().split("T")[0];
+  // ===== ROLE CHECK (ADMIN)
+  const userRef = doc(db, "users", user.uid);
+  const userSnap = await getDoc(userRef);
 
+  if (userSnap.exists() && userSnap.data().role === "admin") {
+    adminLink.style.display = "inline";
+  }
+
+  // ===== ATTENDANCE CHECK
   const q = query(
     collection(db, "attendance"),
     where("userId", "==", user.uid),
-    where("date", "==", today)
+    where("date", "==", todayString())
   );
 
   const snap = await getDocs(q);
 
   if (!snap.empty) {
-    const doc = snap.docs[0];
-    attendanceDocId = doc.id;
+    const docSnap = snap.docs[0];
+    attendanceDocId = docSnap.id;
 
-    const data = doc.data();
+    const data = docSnap.data();
 
     if (data.checkOut) {
       statusText.innerText = `Check In: ${formatDateTime(
@@ -82,7 +95,8 @@ onAuthStateChanged(auth, async (user) => {
       checkOutBtn.disabled = false;
     }
   } else {
-    statusText.innerText = "Belum Check In";
+    statusText.innerText = "Belum check-in hari ini";
+    checkOutBtn.disabled = true;
   }
 });
 
@@ -93,21 +107,16 @@ checkInBtn.addEventListener("click", async () => {
   const user = auth.currentUser;
   if (!user) return;
 
-  const today = new Date().toISOString().split("T")[0];
-
-  const docRef = await addDoc(collection(db, "attendance"), {
+  const ref = await addDoc(collection(db, "attendance"), {
     userId: user.uid,
     email: user.email,
-    date: today,
+    date: todayString(),
     checkIn: serverTimestamp(),
     checkOut: null,
   });
 
-  attendanceDocId = docRef.id;
-
-  statusText.innerText = "Check In berhasil";
-  checkInBtn.disabled = true;
-  checkOutBtn.disabled = false;
+  attendanceDocId = ref.id;
+  window.location.reload();
 });
 
 // =====================
@@ -116,20 +125,11 @@ checkInBtn.addEventListener("click", async () => {
 checkOutBtn.addEventListener("click", async () => {
   if (!attendanceDocId) return;
 
-  const q = query(
-    collection(db, "attendance"),
-    where("__name__", "==", attendanceDocId)
-  );
-
-  const snap = await getDocs(q);
-  const ref = snap.docs[0].ref;
-
-  await updateDoc(ref, {
+  await updateDoc(doc(db, "attendance", attendanceDocId), {
     checkOut: serverTimestamp(),
   });
 
-  statusText.innerText = "Check Out berhasil";
-  checkOutBtn.disabled = true;
+  window.location.reload();
 });
 
 // =====================
