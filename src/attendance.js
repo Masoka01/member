@@ -1,54 +1,87 @@
 import { auth, db } from "./firebase.js";
 import {
+  onAuthStateChanged,
+  signOut,
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+import {
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+  updateDoc,
+  serverTimestamp,
   doc,
   getDoc,
-  setDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { getWeekId, formatDate, formatTime } from "./time.js";
-import { signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-auth.onAuthStateChanged(async (user) => {
+const userEmail = document.getElementById("userEmail");
+const status = document.getElementById("status");
+const checkInBtn = document.getElementById("checkInBtn");
+const checkOutBtn = document.getElementById("checkOutBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const adminLink = document.getElementById("adminLink");
+
+let attendanceId = null;
+
+const today = new Date().toLocaleDateString("id-ID");
+
+onAuthStateChanged(auth, async (user) => {
   if (!user) return (location.href = "login.html");
 
-  document.getElementById("userEmail").innerText = user.email;
+  userEmail.innerText = `Login: ${user.email}`;
 
-  const now = new Date();
-  const weekId = getWeekId(now);
-  const ref = doc(db, "attendance", weekId, user.uid);
-  const snap = await getDoc(ref);
-
-  if (!snap.exists()) {
-    document.getElementById("checkInBtn").disabled = false;
-  } else {
-    document.getElementById("checkInBtn").disabled = true;
-    document.getElementById("checkOutBtn").disabled =
-      snap.data().checkOut !== null;
+  // CEK ROLE
+  const userSnap = await getDoc(doc(db, "users", user.uid));
+  if (userSnap.exists() && userSnap.data().role === "admin") {
+    adminLink.style.display = "inline";
   }
 
-  document.getElementById("checkInBtn").onclick = async () => {
-    await setDoc(ref, {
-      email: user.email,
-      date: formatDate(now),
-      checkIn: formatTime(now),
-      checkOut: null,
-      week: weekId,
-    });
-    location.reload();
-  };
+  const q = query(
+    collection(db, "attendance"),
+    where("userId", "==", user.uid),
+    where("date", "==", today)
+  );
 
-  document.getElementById("checkOutBtn").onclick = async () => {
-    await setDoc(
-      ref,
-      {
-        checkOut: formatTime(new Date()),
-      },
-      { merge: true }
-    );
-    location.reload();
-  };
+  const snap = await getDocs(q);
 
-  document.getElementById("logoutBtn").onclick = async () => {
-    await signOut(auth);
-    location.href = "login.html";
-  };
+  if (!snap.empty) {
+    const d = snap.docs[0];
+    attendanceId = d.id;
+
+    if (d.data().checkOut) {
+      status.innerText = "Sudah Check In & Out";
+      checkInBtn.disabled = true;
+      checkOutBtn.disabled = true;
+    } else {
+      status.innerText = "Sudah Check In";
+      checkInBtn.disabled = true;
+      checkOutBtn.disabled = false;
+    }
+  }
 });
+
+checkInBtn.onclick = async () => {
+  const user = auth.currentUser;
+  await addDoc(collection(db, "attendance"), {
+    userId: user.uid,
+    email: user.email,
+    date: today,
+    checkIn: serverTimestamp(),
+    checkOut: null,
+  });
+  location.reload();
+};
+
+checkOutBtn.onclick = async () => {
+  await updateDoc(doc(db, "attendance", attendanceId), {
+    checkOut: serverTimestamp(),
+  });
+  location.reload();
+};
+
+logoutBtn.onclick = async () => {
+  await signOut(auth);
+  location.href = "login.html";
+};

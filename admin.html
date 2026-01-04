@@ -1,20 +1,25 @@
-<h1>Admin Panel</h1>
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Admin Panel</title>
+  </head>
+  <body>
+    <h2>Admin Panel</h2>
 
-<table border="1">
-  <thead>
-    <tr>
-      <th>Email</th>
-      <th>Tanggal</th>
-      <th>Check In</th>
-      <th>Check Out</th>
-    </tr>
-  </thead>
-  <tbody id="tableBody"></tbody>
-</table>
+    <table border="1">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Tanggal</th>
+          <th>Check In</th>
+          <th>Check Out</th>
+        </tr>
+      </thead>
+      <tbody id="data"></tbody>
+    </table>
 
-<br />
-<button id="deleteWeekBtn">Delete Minggu Ini</button>
-<br /><br />
-<a href="dashboard.html">← Kembali</a>
+    <p><a href="dashboard.html">← Kembali</a></p>
 
-<script type="module" src="src/admin.js"></script>
+    <script type="module" src="src/admin.js"></script>
+  </body>
+</html>
