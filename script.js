@@ -10,6 +10,7 @@ const firebaseConfig = {
   appId: "1:1000393480842:web:f36db120025c51cf312b73",
 };
 
+// INIT
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
@@ -17,113 +18,112 @@ const db = firebase.firestore();
  * HELPER
  *********************************/
 function getTanggal() {
-  return new Date().toISOString().split("T")[0];
+  return new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 }
 
 function getJam() {
-  return new Date().toLocaleTimeString("id-ID");
+  return new Date().toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
-/*********************************
- * CEK NAMA TERDAFTAR
- *********************************/
-function isNamaDiizinkan(nama) {
-  return db
-    .collection("allowed_users")
-    .where("nama", "==", nama)
-    .get()
-    .then((snapshot) => !snapshot.empty);
+function setStatus(text, success = false) {
+  const el = document.getElementById("status");
+  el.innerText = text;
+  el.style.color = success ? "green" : "#b00020";
 }
 
 /*********************************
  * CHECK IN
  *********************************/
 function checkIn() {
-  const nama = document.getElementById("nama").value.trim();
+  const namaInput = document.getElementById("nama");
+  const nama = namaInput.value.trim();
+
   if (!nama) {
     alert("Nama wajib diisi");
     return;
   }
 
-  isNamaDiizinkan(nama).then((isAllowed) => {
-    if (!isAllowed) {
-      document.getElementById("status").innerText = "❌ Nama tidak terdaftar";
-      return;
-    }
+  const tanggal = getTanggal();
+  const docId = `${nama}_${tanggal}`; // 🔑 KUNCI UTAMA
 
-    const tanggal = getTanggal();
+  db.collection("attendance")
+    .doc(docId)
+    .set({
+      nama: nama,
+      tanggal: tanggal,
+      checkin: getJam(),
+      checkout: null,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    })
+    .then(() => {
+      setStatus("✅ Check-in berhasil", true);
+    })
+    .catch((err) => {
+      console.error(err);
 
-    db.collection("attendance")
-      .where("nama", "==", nama)
-      .where("tanggal", "==", tanggal)
-      .get()
-      .then((snapshot) => {
-        if (!snapshot.empty) {
-          document.getElementById("status").innerText =
-            "⚠️ Sudah check-in hari ini";
-          return;
-        }
-
-        db.collection("attendance")
-          .add({
-            nama,
-            tanggal,
-            checkin: getJam(),
-            checkout: null,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          })
-          .then(() => {
-            document.getElementById("status").innerText =
-              "✅ Check-in berhasil";
-          });
-      });
-  });
+      if (err.code === "permission-denied") {
+        setStatus("❌ Nama tidak terdaftar");
+      } else {
+        setStatus("❌ Gagal check-in");
+      }
+    });
 }
 
 /*********************************
  * CHECK OUT
  *********************************/
 function checkOut() {
-  const nama = document.getElementById("nama").value.trim();
+  const namaInput = document.getElementById("nama");
+  const nama = namaInput.value.trim();
+
   if (!nama) {
     alert("Nama wajib diisi");
     return;
   }
 
-  isNamaDiizinkan(nama).then((isAllowed) => {
-    if (!isAllowed) {
-      document.getElementById("status").innerText = "❌ Nama tidak terdaftar";
-      return;
-    }
+  const tanggal = getTanggal();
+  const docId = `${nama}_${tanggal}`;
 
-    const tanggal = getTanggal();
+  const docRef = db.collection("attendance").doc(docId);
 
-    db.collection("attendance")
-      .where("nama", "==", nama)
-      .where("tanggal", "==", tanggal)
-      .limit(1)
-      .get()
-      .then((snapshot) => {
-        if (snapshot.empty) {
-          document.getElementById("status").innerText = "❌ Belum check-in";
-          return;
-        }
+  docRef
+    .get()
+    .then((doc) => {
+      if (!doc.exists) {
+        setStatus("❌ Belum check-in");
+        return;
+      }
 
-        const doc = snapshot.docs[0];
+      const data = doc.data();
 
-        if (doc.data().checkout) {
-          document.getElementById("status").innerText = "⚠️ Sudah check-out";
-          return;
-        }
+      if (data.checkout) {
+        setStatus("⚠️ Sudah check-out");
+        return;
+      }
 
-        doc.ref
-          .update({
-            checkout: getJam(),
-          })
-          .then(() => {
-            document.getElementById("status").innerText =
-              "✅ Check-out berhasil";
-          });
-      });
-  });
+      docRef
+        .update({
+          checkout: getJam(),
+        })
+        .then(() => {
+          setStatus("✅ Check-out berhasil", true);
+        })
+        .catch((err) => {
+          console.error(err);
+
+          if (err.code === "permission-denied") {
+            setStatus("❌ Nama tidak terdaftar");
+          } else {
+            setStatus("❌ Gagal check-out");
+          }
+        });
+    })
+    .catch((err) => {
+      console.error(err);
+      setStatus("❌ Gagal mengambil data");
+    });
 }
