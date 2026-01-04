@@ -1,5 +1,4 @@
 import { auth, db } from "./firebase.js";
-
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 import {
@@ -7,19 +6,33 @@ import {
   getDocs,
   doc,
   getDoc,
-  orderBy,
-  query,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-const table = document.getElementById("attendanceTable");
+// =====================
+// FORMAT DATETIME
+// =====================
+function formatDateTime(timestamp) {
+  if (!timestamp) return "-";
 
+  const d = timestamp.toDate();
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+}
+
+// =====================
+// AUTH + ROLE CHECK
+// =====================
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "login.html";
     return;
   }
 
-  // 🔐 CEK ROLE ADMIN
   const userRef = doc(db, "users", user.uid);
   const userSnap = await getDoc(userRef);
 
@@ -29,30 +42,28 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  // 📥 AMBIL SEMUA DATA ABSENSI
-  const q = query(collection(db, "attendance"), orderBy("date", "desc"));
+  loadAttendance();
+});
 
-  const snapshot = await getDocs(q);
+// =====================
+// LOAD DATA
+// =====================
+async function loadAttendance() {
+  const tbody = document.getElementById("attendanceBody");
+  tbody.innerHTML = "";
 
-  table.innerHTML = "";
+  const snap = await getDocs(collection(db, "attendance"));
 
-  if (snapshot.empty) {
-    table.innerHTML = "<tr><td colspan='4'>Belum ada data</td></tr>";
-    return;
-  }
-
-  snapshot.forEach((docSnap) => {
-    const data = docSnap.data();
+  snap.forEach((doc) => {
+    const data = doc.data();
 
     const tr = document.createElement("tr");
-
     tr.innerHTML = `
       <td>${data.email}</td>
       <td>${data.date}</td>
-      <td>${data.checkIn?.toDate().toLocaleString() ?? "-"}</td>
-      <td>${data.checkOut?.toDate().toLocaleString() ?? "-"}</td>
+      <td>${formatDateTime(data.checkIn)}</td>
+      <td>${formatDateTime(data.checkOut)}</td>
     `;
-
-    table.appendChild(tr);
+    tbody.appendChild(tr);
   });
-});
+}

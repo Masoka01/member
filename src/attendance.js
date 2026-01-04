@@ -1,5 +1,4 @@
 import { auth, db } from "./firebase.js";
-
 import {
   onAuthStateChanged,
   signOut,
@@ -13,45 +12,46 @@ import {
   getDocs,
   updateDoc,
   serverTimestamp,
-  doc,
-  getDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+// =====================
+// FORMAT DATETIME
+// =====================
+function formatDateTime(timestamp) {
+  if (!timestamp) return "-";
+
+  const d = timestamp.toDate();
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+}
+
+// =====================
+// ELEMENT
+// =====================
 const userEmail = document.getElementById("userEmail");
 const statusText = document.getElementById("status");
 const checkInBtn = document.getElementById("checkInBtn");
 const checkOutBtn = document.getElementById("checkOutBtn");
 const logoutBtn = document.getElementById("logoutBtn");
-const adminLink = document.getElementById("adminLink");
 
 let attendanceDocId = null;
 
-// ===============================
+// =====================
 // AUTH CHECK
-// ===============================
+// =====================
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "login.html";
     return;
   }
 
-  console.log("LOGIN:", user.uid);
-
   userEmail.innerText = `Login sebagai: ${user.email}`;
 
-  // ===============================
-  // ROLE CHECK (ADMIN)
-  // ===============================
-  const userRef = doc(db, "users", user.uid);
-  const userSnap = await getDoc(userRef);
-
-  if (userSnap.exists() && userSnap.data().role === "admin") {
-    adminLink.style.display = "block";
-  }
-
-  // ===============================
-  // ATTENDANCE CHECK
-  // ===============================
   const today = new Date().toISOString().split("T")[0];
 
   const q = query(
@@ -60,31 +60,35 @@ onAuthStateChanged(auth, async (user) => {
     where("date", "==", today)
   );
 
-  const snapshot = await getDocs(q);
+  const snap = await getDocs(q);
 
-  if (!snapshot.empty) {
-    const docSnap = snapshot.docs[0];
-    attendanceDocId = docSnap.id;
+  if (!snap.empty) {
+    const doc = snap.docs[0];
+    attendanceDocId = doc.id;
 
-    if (docSnap.data().checkOut) {
-      statusText.innerText = "Status: Sudah Check-in & Check-out";
+    const data = doc.data();
+
+    if (data.checkOut) {
+      statusText.innerText = `Check In: ${formatDateTime(
+        data.checkIn
+      )} | Check Out: ${formatDateTime(data.checkOut)}`;
       checkInBtn.disabled = true;
       checkOutBtn.disabled = true;
     } else {
-      statusText.innerText = "Status: Sudah Check-in";
+      statusText.innerText = `Check In: ${formatDateTime(
+        data.checkIn
+      )} | Check Out: -`;
       checkInBtn.disabled = true;
       checkOutBtn.disabled = false;
     }
   } else {
-    statusText.innerText = "Status: Belum Check-in";
-    checkInBtn.disabled = false;
-    checkOutBtn.disabled = true;
+    statusText.innerText = "Belum Check In";
   }
 });
 
-// ===============================
+// =====================
 // CHECK IN
-// ===============================
+// =====================
 checkInBtn.addEventListener("click", async () => {
   const user = auth.currentUser;
   if (!user) return;
@@ -100,30 +104,37 @@ checkInBtn.addEventListener("click", async () => {
   });
 
   attendanceDocId = docRef.id;
-  statusText.innerText = "Status: Sudah Check-in";
+
+  statusText.innerText = "Check In berhasil";
   checkInBtn.disabled = true;
   checkOutBtn.disabled = false;
 });
 
-// ===============================
+// =====================
 // CHECK OUT
-// ===============================
+// =====================
 checkOutBtn.addEventListener("click", async () => {
   if (!attendanceDocId) return;
 
-  const docRef = doc(db, "attendance", attendanceDocId);
+  const q = query(
+    collection(db, "attendance"),
+    where("__name__", "==", attendanceDocId)
+  );
 
-  await updateDoc(docRef, {
+  const snap = await getDocs(q);
+  const ref = snap.docs[0].ref;
+
+  await updateDoc(ref, {
     checkOut: serverTimestamp(),
   });
 
-  statusText.innerText = "Status: Sudah Check-in & Check-out";
+  statusText.innerText = "Check Out berhasil";
   checkOutBtn.disabled = true;
 });
 
-// ===============================
+// =====================
 // LOGOUT
-// ===============================
+// =====================
 logoutBtn.addEventListener("click", async () => {
   await signOut(auth);
   window.location.href = "login.html";
