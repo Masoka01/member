@@ -6,73 +6,60 @@ import {
   getDocs,
   doc,
   getDoc,
+  deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // =====================
-// FORMATTERS
-// =====================
-function formatDate(ts) {
-  if (!ts) return "-";
-  const d = ts.toDate();
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  return `${dd}-${mm}-${yyyy}`;
-}
-
-function formatTime(ts) {
-  if (!ts) return "-";
-  const d = ts.toDate();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${hh}:${min}`;
-}
-
-// =====================
-// AUTH + ROLE CHECK
+// AUTH + ROLE
 // =====================
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    window.location.href = "login.html";
+    location.href = "login.html";
     return;
   }
 
-  const userRef = doc(db, "users", user.uid);
-  const userSnap = await getDoc(userRef);
-
+  const userSnap = await getDoc(doc(db, "users", user.uid));
   if (!userSnap.exists() || userSnap.data().role !== "admin") {
-    alert("Akses admin ditolak");
-    window.location.href = "dashboard.html";
+    alert("Akses ditolak");
+    location.href = "dashboard.html";
     return;
   }
 
-  loadAttendance();
+  loadWeeks();
 });
 
 // =====================
-// LOAD ATTENDANCE
+// LOAD WEEKS
 // =====================
-async function loadAttendance() {
-  const tbody = document.getElementById("attendanceBody");
-  tbody.innerHTML = "";
+async function loadWeeks() {
+  const attendanceRef = collection(db, "attendance");
+  const weeksSnap = await getDocs(attendanceRef);
 
-  const snap = await getDocs(collection(db, "attendance"));
+  const select = document.getElementById("weekSelect");
+  select.innerHTML = "";
 
-  snap.forEach((docSnap) => {
-    const d = docSnap.data();
-
-    // SKIP DATA YANG BELUM CHECK-IN
-    if (!d.checkIn) return;
-
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
-      <td>${d.email}</td>
-      <td>${formatDate(d.checkIn)}</td>
-      <td>${formatTime(d.checkIn)}</td>
-      <td>${formatTime(d.checkOut)}</td>
-    `;
-
-    tbody.appendChild(tr);
+  weeksSnap.forEach((doc) => {
+    const opt = document.createElement("option");
+    opt.value = doc.id;
+    opt.textContent = doc.id;
+    select.appendChild(opt);
   });
 }
+
+// =====================
+// DELETE WEEK
+// =====================
+document.getElementById("deleteWeekBtn").onclick = async () => {
+  const week = document.getElementById("weekSelect").value;
+  if (!week) return;
+
+  if (!confirm(`Hapus semua absensi minggu ${week}?`)) return;
+
+  const snap = await getDocs(collection(db, "attendance", week));
+  for (const d of snap.docs) {
+    await deleteDoc(d.ref);
+  }
+
+  alert("Absensi minggu berhasil dihapus");
+  loadWeeks();
+};

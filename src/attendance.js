@@ -12,130 +12,128 @@ import {
   getDocs,
   updateDoc,
   serverTimestamp,
-  doc,
-  getDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // =====================
-// ELEMENT
+// HELPER: ISO WEEK
+// =====================
+function getISOWeek(date) {
+  const d = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+  );
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+function formatDate(d) {
+  return `${String(d.getDate()).padStart(2, "0")}-${String(
+    d.getMonth() + 1
+  ).padStart(2, "0")}-${d.getFullYear()}`;
+}
+
+// =====================
+// DOM
 // =====================
 const userEmail = document.getElementById("userEmail");
 const statusText = document.getElementById("status");
 const checkInBtn = document.getElementById("checkInBtn");
 const checkOutBtn = document.getElementById("checkOutBtn");
 const logoutBtn = document.getElementById("logoutBtn");
-const adminLink = document.getElementById("adminLink");
 
 let attendanceDocId = null;
+let weekKey = null;
 
 // =====================
-// FORMAT
-// =====================
-function formatDateTime(ts) {
-  if (!ts) return "-";
-  const d = ts.toDate();
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
-}
-
-function todayString() {
-  const d = new Date();
-  return d.toISOString().split("T")[0]; // YYYY-MM-DD
-}
-
-// =====================
-// AUTH CHECK
+// AUTH
 // =====================
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    window.location.href = "login.html";
+    location.href = "login.html";
     return;
   }
 
   userEmail.innerText = `Login sebagai: ${user.email}`;
 
-  // ===== ROLE CHECK (ADMIN)
-  const userRef = doc(db, "users", user.uid);
-  const userSnap = await getDoc(userRef);
+  const today = new Date();
+  weekKey = getISOWeek(today);
+  const dateStr = formatDate(today);
 
-  if (userSnap.exists() && userSnap.data().role === "admin") {
-    adminLink.style.display = "inline";
-  }
-
-  // ===== ATTENDANCE CHECK
   const q = query(
-    collection(db, "attendance"),
+    collection(db, "attendance", weekKey),
     where("userId", "==", user.uid),
-    where("date", "==", todayString())
+    where("date", "==", dateStr)
   );
 
   const snap = await getDocs(q);
 
   if (!snap.empty) {
-    const docSnap = snap.docs[0];
-    attendanceDocId = docSnap.id;
+    const doc = snap.docs[0];
+    attendanceDocId = doc.id;
 
-    const data = docSnap.data();
-
-    if (data.checkOut) {
-      statusText.innerText = `Check In: ${formatDateTime(
-        data.checkIn
-      )} | Check Out: ${formatDateTime(data.checkOut)}`;
+    if (doc.data().checkOut) {
+      statusText.innerText = "Sudah Check-in & Check-out";
       checkInBtn.disabled = true;
       checkOutBtn.disabled = true;
     } else {
-      statusText.innerText = `Check In: ${formatDateTime(
-        data.checkIn
-      )} | Check Out: -`;
+      statusText.innerText = "Sudah Check-in";
       checkInBtn.disabled = true;
       checkOutBtn.disabled = false;
     }
   } else {
-    statusText.innerText = "Belum check-in hari ini";
-    checkOutBtn.disabled = true;
+    statusText.innerText = "Belum Check-in";
   }
 });
 
 // =====================
-// CHECK IN
+// CHECK-IN
 // =====================
-checkInBtn.addEventListener("click", async () => {
+checkInBtn.onclick = async () => {
   const user = auth.currentUser;
   if (!user) return;
 
-  const ref = await addDoc(collection(db, "attendance"), {
+  const now = new Date();
+
+  const ref = await addDoc(collection(db, "attendance", weekKey), {
     userId: user.uid,
     email: user.email,
-    date: todayString(),
+    date: formatDate(now),
     checkIn: serverTimestamp(),
     checkOut: null,
   });
 
   attendanceDocId = ref.id;
-  window.location.reload();
-});
+  statusText.innerText = "Sudah Check-in";
+  checkInBtn.disabled = true;
+  checkOutBtn.disabled = false;
+};
 
 // =====================
-// CHECK OUT
+// CHECK-OUT
 // =====================
-checkOutBtn.addEventListener("click", async () => {
+checkOutBtn.onclick = async () => {
   if (!attendanceDocId) return;
 
-  await updateDoc(doc(db, "attendance", attendanceDocId), {
+  const q = query(
+    collection(db, "attendance", weekKey),
+    where("__name__", "==", attendanceDocId)
+  );
+
+  const snap = await getDocs(q);
+  await updateDoc(snap.docs[0].ref, {
     checkOut: serverTimestamp(),
   });
 
-  window.location.reload();
-});
+  statusText.innerText = "Sudah Check-in & Check-out";
+  checkOutBtn.disabled = true;
+};
 
 // =====================
 // LOGOUT
 // =====================
-logoutBtn.addEventListener("click", async () => {
+logoutBtn.onclick = async () => {
   await signOut(auth);
-  window.location.href = "login.html";
-});
+  location.href = "login.html";
+};
