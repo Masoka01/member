@@ -1,99 +1,49 @@
 import { auth, db } from "./firebase.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
 import {
   collection,
   getDocs,
+  deleteDoc,
   doc,
   getDoc,
-  deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getWeekId } from "./time.js";
 
-const weekSelect = document.getElementById("weekSelect");
-const tableBody = document.getElementById("tableBody");
-const deleteBtn = document.getElementById("deleteWeekBtn");
+auth.onAuthStateChanged(async (user) => {
+  if (!user) return (location.href = "login.html");
 
-function formatTime(ts) {
-  if (!ts) return "-";
-  const d = ts.toDate();
-  return `${String(d.getHours()).padStart(2, "0")}:${String(
-    d.getMinutes()
-  ).padStart(2, "0")}`;
-}
-
-// ======================
-// AUTH + ROLE
-// ======================
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    location.href = "login.html";
-    return;
+  const roleSnap = await getDoc(doc(db, "users", user.uid));
+  if (!roleSnap.exists() || roleSnap.data().role !== "admin") {
+    return (location.href = "dashboard.html");
   }
 
-  const snap = await getDoc(doc(db, "users", user.uid));
-  if (!snap.exists() || snap.data().role !== "admin") {
-    alert("Bukan admin");
-    location.href = "dashboard.html";
-    return;
+  const tbody = document.getElementById("tableBody");
+  tbody.innerHTML = "";
+
+  const weeks = await getDocs(collection(db, "attendance"));
+  for (const week of weeks.docs) {
+    const records = await getDocs(collection(db, "attendance", week.id));
+    records.forEach((r) => {
+      const d = r.data();
+      tbody.innerHTML += `
+        <tr>
+          <td>${d.email}</td>
+          <td>${d.date}</td>
+          <td>${d.checkIn || "-"}</td>
+          <td>${d.checkOut || "-"}</td>
+        </tr>`;
+    });
   }
 
-  loadWeeks();
+  document.getElementById("deleteWeekBtn").onclick = async () => {
+    if (!confirm("Hapus absensi minggu ini?")) return;
+
+    const weekId = getWeekId(new Date());
+    const docs = await getDocs(collection(db, "attendance", weekId));
+    for (const d of docs.docs) {
+      await deleteDoc(d.ref);
+    }
+
+    alert("Absensi minggu ini dihapus");
+    location.reload();
+  };
 });
-
-// ======================
-// LOAD WEEKS
-// ======================
-async function loadWeeks() {
-  weekSelect.innerHTML = "";
-  tableBody.innerHTML = "";
-
-  const weeksSnap = await getDocs(collection(db, "attendance"));
-  weeksSnap.forEach((w) => {
-    const opt = document.createElement("option");
-    opt.value = w.id;
-    opt.textContent = w.id;
-    weekSelect.appendChild(opt);
-  });
-
-  if (weekSelect.value) loadTable();
-}
-
-weekSelect.onchange = loadTable;
-
-// ======================
-// LOAD TABLE
-// ======================
-async function loadTable() {
-  tableBody.innerHTML = "";
-
-  const snap = await getDocs(collection(db, "attendance", weekSelect.value));
-  snap.forEach((d) => {
-    const a = d.data();
-    tableBody.innerHTML += `
-      <tr>
-        <td>${a.email}</td>
-        <td>${a.date}</td>
-        <td>${formatTime(a.checkIn)}</td>
-        <td>${formatTime(a.checkOut)}</td>
-      </tr>
-    `;
-  });
-}
-
-// ======================
-// DELETE WEEK
-// ======================
-deleteBtn.onclick = async () => {
-  const week = weekSelect.value;
-  if (!week) return;
-
-  if (!confirm(`Hapus semua data minggu ${week}?`)) return;
-
-  const snap = await getDocs(collection(db, "attendance", week));
-  for (const d of snap.docs) {
-    await deleteDoc(d.ref);
-  }
-
-  alert("Minggu berhasil dihapus");
-  loadWeeks();
-};

@@ -1,26 +1,9 @@
-<!DOCTYPE html>
-<html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Dashboard Absensi</title>
-  </head>
-  <body>
-    <h2>Dashboard Absensi</h2>
+<h1>Dashboard Absensi</h1>
+<p>Login sebagai: <b id="userEmail"></b></p>
 
-    <p id="userEmail"></p>
-    <p id="status"></p>
+<button id="checkInBtn" disabled>Check In</button>
+<button id="checkOutBtn" disabled>Check Out</button>
+<br /><br />
+<button id="logoutBtn">Logout</button>
 
-    <button id="checkInBtn">Check In</button>
-    <button id="checkOutBtn" disabled>Check Out</button>
-    <br /><br />
-
-    <a href="admin.html" id="adminLink" style="display: none">
-      Masuk Admin Panel
-    </a>
-    <br /><br />
-
-    <button id="logoutBtn">Logout</button>
-
-    <script type="module" src="src/attendance.js"></script>
-  </body>
-</html>
+<script type="module" src="src/attendance.js"></script>

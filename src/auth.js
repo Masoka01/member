@@ -1,31 +1,32 @@
-// src/auth.js
-import { auth } from "./firebase.js";
+import { auth, db } from "./firebase.js";
 import {
   signInWithEmailAndPassword,
-  setPersistence,
-  browserLocalPersistence,
+  onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import {
+  doc,
+  getDoc,
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const form = document.getElementById("loginForm");
-const errorText = document.getElementById("error");
 
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-
-  try {
-    // 🔥 PAKSA SIMPAN SESSION
-    await setPersistence(auth, browserLocalPersistence);
+if (form) {
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = form.email.value;
+    const password = form.password.value;
 
     await signInWithEmailAndPassword(auth, email, password);
+  });
+}
 
-    // ⏳ kasih jeda biar session kebaca
-    setTimeout(() => {
-      window.location.href = "dashboard.html";
-    }, 300);
-  } catch (error) {
-    errorText.innerText = error.message;
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
+
+  const snap = await getDoc(doc(db, "users", user.uid));
+  if (snap.exists() && snap.data().role === "admin") {
+    location.href = "admin.html";
+  } else {
+    location.href = "dashboard.html";
   }
 });
