@@ -1,4 +1,19 @@
 /*********************************
+ * GLOBAL PROMISE ERROR HANDLER
+ *********************************/
+window.addEventListener("unhandledrejection", function (event) {
+  console.error("Unhandled promise:", event.reason);
+
+  const el = document.getElementById("status");
+  if (el) {
+    el.innerText = "❌ Nama tidak terdaftar / akses ditolak";
+    el.style.color = "#c62828";
+  }
+
+  event.preventDefault(); // ⛔ hentikan error ke console
+});
+
+/*********************************
  * FIREBASE CONFIG
  *********************************/
 const firebaseConfig = {
@@ -43,7 +58,6 @@ function setStatus(text, type = "info") {
  *********************************/
 async function checkIn() {
   const nama = document.getElementById("nama").value.trim();
-
   if (!nama) {
     setStatus("❗ Nama wajib diisi", "warning");
     return;
@@ -54,8 +68,8 @@ async function checkIn() {
 
   try {
     await db.collection("attendance").doc(docId).set({
-      nama: nama,
-      tanggal: tanggal,
+      nama,
+      tanggal,
       checkin: getJam(),
       checkout: null,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -63,13 +77,11 @@ async function checkIn() {
 
     setStatus("✅ Berhasil check-in", "success");
   } catch (err) {
-    console.error(err);
-
     if (err.code === "permission-denied") {
-      setStatus("❌ Nama tidak terdaftar / ID tidak ada di sistem", "error");
-    } else {
-      setStatus("❌ Gagal check-in", "error");
+      setStatus("❌ Nama tidak terdaftar / ID tidak ada", "error");
+      return;
     }
+    throw err; // biar ditangkap global handler
   }
 }
 
@@ -78,7 +90,6 @@ async function checkIn() {
  *********************************/
 async function checkOut() {
   const nama = document.getElementById("nama").value.trim();
-
   if (!nama) {
     setStatus("❗ Nama wajib diisi", "warning");
     return;
@@ -86,33 +97,28 @@ async function checkOut() {
 
   const tanggal = getTanggal();
   const docId = `${nama}_${tanggal}`;
-  const docRef = db.collection("attendance").doc(docId);
+  const ref = db.collection("attendance").doc(docId);
 
   try {
-    const doc = await docRef.get();
+    const doc = await ref.get();
 
     if (!doc.exists) {
-      setStatus("❌ Belum melakukan check-in", "error");
+      setStatus("❌ Belum check-in", "error");
       return;
     }
 
     if (doc.data().checkout) {
-      setStatus("⚠️ Sudah melakukan check-out", "warning");
+      setStatus("⚠️ Sudah check-out", "warning");
       return;
     }
 
-    await docRef.update({
-      checkout: getJam(),
-    });
-
+    await ref.update({ checkout: getJam() });
     setStatus("✅ Berhasil check-out", "success");
   } catch (err) {
-    console.error(err);
-
     if (err.code === "permission-denied") {
-      setStatus("❌ Nama tidak terdaftar / ID tidak ada di sistem", "error");
-    } else {
-      setStatus("❌ Gagal check-out", "error");
+      setStatus("❌ Nama tidak terdaftar / ID tidak ada", "error");
+      return;
     }
+    throw err;
   }
 }
