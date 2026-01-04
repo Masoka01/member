@@ -1,6 +1,10 @@
-// src/attendance.js
 import { auth, db } from "./firebase.js";
-import { signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+import {
+  onAuthStateChanged,
+  signOut,
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
 import {
   collection,
   addDoc,
@@ -9,6 +13,8 @@ import {
   getDocs,
   updateDoc,
   serverTimestamp,
+  doc,
+  getDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const userEmail = document.getElementById("userEmail");
@@ -16,23 +22,36 @@ const statusText = document.getElementById("status");
 const checkInBtn = document.getElementById("checkInBtn");
 const checkOutBtn = document.getElementById("checkOutBtn");
 const logoutBtn = document.getElementById("logoutBtn");
+const adminLink = document.getElementById("adminLink");
 
 let attendanceDocId = null;
 
-// ==========================
-// 🔥 AUTH CHECK (NO LISTENER)
-// ==========================
-setTimeout(async () => {
-  const user = auth.currentUser;
-
+// ===============================
+// AUTH CHECK
+// ===============================
+onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    alert("SESSION LOGIN TIDAK TERDETEKSI.\nSilakan login ulang.");
     window.location.href = "login.html";
     return;
   }
 
+  console.log("LOGIN:", user.uid);
+
   userEmail.innerText = `Login sebagai: ${user.email}`;
 
+  // ===============================
+  // ROLE CHECK (ADMIN)
+  // ===============================
+  const userRef = doc(db, "users", user.uid);
+  const userSnap = await getDoc(userRef);
+
+  if (userSnap.exists() && userSnap.data().role === "admin") {
+    adminLink.style.display = "block";
+  }
+
+  // ===============================
+  // ATTENDANCE CHECK
+  // ===============================
   const today = new Date().toISOString().split("T")[0];
 
   const q = query(
@@ -44,10 +63,10 @@ setTimeout(async () => {
   const snapshot = await getDocs(q);
 
   if (!snapshot.empty) {
-    const doc = snapshot.docs[0];
-    attendanceDocId = doc.id;
+    const docSnap = snapshot.docs[0];
+    attendanceDocId = docSnap.id;
 
-    if (doc.data().checkOut) {
+    if (docSnap.data().checkOut) {
       statusText.innerText = "Status: Sudah Check-in & Check-out";
       checkInBtn.disabled = true;
       checkOutBtn.disabled = true;
@@ -61,46 +80,40 @@ setTimeout(async () => {
     checkInBtn.disabled = false;
     checkOutBtn.disabled = true;
   }
-}, 800);
+});
 
-// ==========================
+// ===============================
 // CHECK IN
-// ==========================
+// ===============================
 checkInBtn.addEventListener("click", async () => {
   const user = auth.currentUser;
   if (!user) return;
 
-  const now = new Date();
-  const dateString = now.toISOString().split("T")[0];
+  const today = new Date().toISOString().split("T")[0];
 
-  await addDoc(collection(db, "attendance"), {
+  const docRef = await addDoc(collection(db, "attendance"), {
     userId: user.uid,
     email: user.email,
-    date: dateString,
+    date: today,
     checkIn: serverTimestamp(),
     checkOut: null,
   });
 
+  attendanceDocId = docRef.id;
   statusText.innerText = "Status: Sudah Check-in";
   checkInBtn.disabled = true;
   checkOutBtn.disabled = false;
 });
 
-// ==========================
+// ===============================
 // CHECK OUT
-// ==========================
+// ===============================
 checkOutBtn.addEventListener("click", async () => {
   if (!attendanceDocId) return;
 
-  const q = query(
-    collection(db, "attendance"),
-    where("__name__", "==", attendanceDocId)
-  );
+  const docRef = doc(db, "attendance", attendanceDocId);
 
-  const snapshot = await getDocs(q);
-  if (snapshot.empty) return;
-
-  await updateDoc(snapshot.docs[0].ref, {
+  await updateDoc(docRef, {
     checkOut: serverTimestamp(),
   });
 
@@ -108,9 +121,9 @@ checkOutBtn.addEventListener("click", async () => {
   checkOutBtn.disabled = true;
 });
 
-// ==========================
+// ===============================
 // LOGOUT
-// ==========================
+// ===============================
 logoutBtn.addEventListener("click", async () => {
   await signOut(auth);
   window.location.href = "login.html";
