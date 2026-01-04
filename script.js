@@ -30,7 +30,6 @@ function getJam() {
 
 function setStatus(text, type = "info") {
   const el = document.getElementById("status");
-
   el.innerText = text;
 
   if (type === "success") el.style.color = "#2e7d32";
@@ -42,7 +41,7 @@ function setStatus(text, type = "info") {
 /*********************************
  * CHECK IN
  *********************************/
-function checkIn() {
+async function checkIn() {
   const nama = document.getElementById("nama").value.trim();
 
   if (!nama) {
@@ -53,33 +52,31 @@ function checkIn() {
   const tanggal = getTanggal();
   const docId = `${nama}_${tanggal}`;
 
-  db.collection("attendance")
-    .doc(docId)
-    .set({
+  try {
+    await db.collection("attendance").doc(docId).set({
       nama: nama,
       tanggal: tanggal,
       checkin: getJam(),
       checkout: null,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    })
-    .then(() => {
-      setStatus("✅ Berhasil check-in", "success");
-    })
-    .catch((err) => {
-      console.error(err);
-
-      if (err.code === "permission-denied") {
-        setStatus("❌ Nama tidak terdaftar / ID tidak ada di sistem", "error");
-      } else {
-        setStatus("❌ Gagal check-in", "error");
-      }
     });
+
+    setStatus("✅ Berhasil check-in", "success");
+  } catch (err) {
+    console.error(err);
+
+    if (err.code === "permission-denied") {
+      setStatus("❌ Nama tidak terdaftar / ID tidak ada di sistem", "error");
+    } else {
+      setStatus("❌ Gagal check-in", "error");
+    }
+  }
 }
 
 /*********************************
  * CHECK OUT
  *********************************/
-function checkOut() {
+async function checkOut() {
   const nama = document.getElementById("nama").value.trim();
 
   if (!nama) {
@@ -91,41 +88,31 @@ function checkOut() {
   const docId = `${nama}_${tanggal}`;
   const docRef = db.collection("attendance").doc(docId);
 
-  docRef
-    .get()
-    .then((doc) => {
-      if (!doc.exists) {
-        setStatus("❌ Belum melakukan check-in", "error");
-        return;
-      }
+  try {
+    const doc = await docRef.get();
 
-      if (doc.data().checkout) {
-        setStatus("⚠️ Sudah melakukan check-out", "warning");
-        return;
-      }
+    if (!doc.exists) {
+      setStatus("❌ Belum melakukan check-in", "error");
+      return;
+    }
 
-      docRef
-        .update({
-          checkout: getJam(),
-        })
-        .then(() => {
-          setStatus("✅ Berhasil check-out", "success");
-        })
-        .catch((err) => {
-          console.error(err);
+    if (doc.data().checkout) {
+      setStatus("⚠️ Sudah melakukan check-out", "warning");
+      return;
+    }
 
-          if (err.code === "permission-denied") {
-            setStatus(
-              "❌ Nama tidak terdaftar / ID tidak ada di sistem",
-              "error"
-            );
-          } else {
-            setStatus("❌ Gagal check-out", "error");
-          }
-        });
-    })
-    .catch((err) => {
-      console.error(err);
-      setStatus("❌ Terjadi kesalahan", "error");
+    await docRef.update({
+      checkout: getJam(),
     });
+
+    setStatus("✅ Berhasil check-out", "success");
+  } catch (err) {
+    console.error(err);
+
+    if (err.code === "permission-denied") {
+      setStatus("❌ Nama tidak terdaftar / ID tidak ada di sistem", "error");
+    } else {
+      setStatus("❌ Gagal check-out", "error");
+    }
+  }
 }
