@@ -8,13 +8,12 @@ const form = document.getElementById("loginForm");
 const errorText = document.getElementById("errorText");
 
 onAuthStateChanged(auth, (user) => {
-  if (user) {
-    location.href = "dashboard.html";
-  }
+  if (user) location.href = "dashboard.html";
 });
 
-form?.addEventListener("submit", async (e) => {
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
+  errorText.textContent = "";
 
   try {
     await signInWithEmailAndPassword(
