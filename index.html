@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Absensi</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css" />
+
+    <!-- Firebase COMPAT -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Absensi Harian</h2>
+
+      <input type="text" id="nama" placeholder="Masukkan Nama" />
+
+      <div class="buttons">
+        <button class="btn-in" onclick="checkIn()">Check In</button>
+        <button class="btn-out" onclick="checkOut()">Check Out</button>
+      </div>
+
+      <p id="status"></p>
+    </div>
+
+    <!-- JS -->
+    <script src="script.js"></script>
+  </body>
+</html>
