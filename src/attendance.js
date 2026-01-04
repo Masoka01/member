@@ -14,15 +14,15 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// =====================
-// HELPER: ISO WEEK
-// =====================
-function getISOWeek(date) {
+// ======================
+// UTIL
+// ======================
+function getWeekKey(date) {
   const d = new Date(
     Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
   );
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const week = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
@@ -34,62 +34,71 @@ function formatDate(d) {
   ).padStart(2, "0")}-${d.getFullYear()}`;
 }
 
-// =====================
+function formatTime(ts) {
+  const d = ts.toDate();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(
+    d.getMinutes()
+  ).padStart(2, "0")}`;
+}
+
+// ======================
 // DOM
-// =====================
-const userEmail = document.getElementById("userEmail");
-const statusText = document.getElementById("status");
+// ======================
+const emailEl = document.getElementById("userEmail");
+const statusEl = document.getElementById("status");
 const checkInBtn = document.getElementById("checkInBtn");
 const checkOutBtn = document.getElementById("checkOutBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 
-let attendanceDocId = null;
+let docId = null;
 let weekKey = null;
 
-// =====================
+// ======================
 // AUTH
-// =====================
+// ======================
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     location.href = "login.html";
     return;
   }
 
-  userEmail.innerText = `Login sebagai: ${user.email}`;
+  emailEl.innerText = `Login sebagai: ${user.email}`;
 
   const today = new Date();
-  weekKey = getISOWeek(today);
-  const dateStr = formatDate(today);
+  weekKey = getWeekKey(today);
+  const todayStr = formatDate(today);
 
   const q = query(
     collection(db, "attendance", weekKey),
     where("userId", "==", user.uid),
-    where("date", "==", dateStr)
+    where("date", "==", todayStr)
   );
 
   const snap = await getDocs(q);
 
   if (!snap.empty) {
-    const doc = snap.docs[0];
-    attendanceDocId = doc.id;
+    const d = snap.docs[0];
+    docId = d.id;
 
-    if (doc.data().checkOut) {
-      statusText.innerText = "Sudah Check-in & Check-out";
+    if (d.data().checkOut) {
+      statusEl.innerText = `Check In: ${formatTime(
+        d.data().checkIn
+      )} | Check Out: ${formatTime(d.data().checkOut)}`;
       checkInBtn.disabled = true;
       checkOutBtn.disabled = true;
     } else {
-      statusText.innerText = "Sudah Check-in";
+      statusEl.innerText = `Check In: ${formatTime(d.data().checkIn)}`;
       checkInBtn.disabled = true;
       checkOutBtn.disabled = false;
     }
   } else {
-    statusText.innerText = "Belum Check-in";
+    statusEl.innerText = "Belum Check-in hari ini";
   }
 });
 
-// =====================
-// CHECK-IN
-// =====================
+// ======================
+// CHECK IN
+// ======================
 checkInBtn.onclick = async () => {
   const user = auth.currentUser;
   if (!user) return;
@@ -104,21 +113,21 @@ checkInBtn.onclick = async () => {
     checkOut: null,
   });
 
-  attendanceDocId = ref.id;
-  statusText.innerText = "Sudah Check-in";
+  docId = ref.id;
+  statusEl.innerText = "Check-in berhasil";
   checkInBtn.disabled = true;
   checkOutBtn.disabled = false;
 };
 
-// =====================
-// CHECK-OUT
-// =====================
+// ======================
+// CHECK OUT
+// ======================
 checkOutBtn.onclick = async () => {
-  if (!attendanceDocId) return;
+  if (!docId) return;
 
   const q = query(
     collection(db, "attendance", weekKey),
-    where("__name__", "==", attendanceDocId)
+    where("__name__", "==", docId)
   );
 
   const snap = await getDocs(q);
@@ -126,13 +135,13 @@ checkOutBtn.onclick = async () => {
     checkOut: serverTimestamp(),
   });
 
-  statusText.innerText = "Sudah Check-in & Check-out";
+  statusEl.innerText = "Check-out berhasil";
   checkOutBtn.disabled = true;
 };
 
-// =====================
+// ======================
 // LOGOUT
-// =====================
+// ======================
 logoutBtn.onclick = async () => {
   await signOut(auth);
   location.href = "login.html";
