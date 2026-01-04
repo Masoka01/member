@@ -1,16 +1,8 @@
 /*********************************
- * GLOBAL PROMISE ERROR HANDLER
+ * GLOBAL PROMISE SAFETY
  *********************************/
-window.addEventListener("unhandledrejection", function (event) {
-  console.error("Unhandled promise:", event.reason);
-
-  const el = document.getElementById("status");
-  if (el) {
-    el.innerText = "❌ Nama tidak terdaftar / akses ditolak";
-    el.style.color = "#c62828";
-  }
-
-  event.preventDefault(); // ⛔ hentikan error ke console
+window.addEventListener("unhandledrejection", (e) => {
+  e.preventDefault();
 });
 
 /*********************************
@@ -47,14 +39,64 @@ function setStatus(text, type = "info") {
   const el = document.getElementById("status");
   el.innerText = text;
 
-  if (type === "success") el.style.color = "#2e7d32";
-  else if (type === "error") el.style.color = "#c62828";
-  else if (type === "warning") el.style.color = "#ed6c02";
-  else el.style.color = "#333";
+  el.style.color =
+    type === "success"
+      ? "#2e7d32"
+      : type === "error"
+      ? "#c62828"
+      : type === "warning"
+      ? "#ed6c02"
+      : "#333";
+}
+
+function setButtonState({ checkIn, checkOut }) {
+  document.querySelector(".btn-in").disabled = !checkIn;
+  document.querySelector(".btn-out").disabled = !checkOut;
+
+  document.querySelector(".btn-in").style.opacity = checkIn ? "1" : "0.5";
+  document.querySelector(".btn-out").style.opacity = checkOut ? "1" : "0.5";
 }
 
 /*********************************
- * CHECK IN
+ * CEK STATUS ABSENSI HARI INI
+ *********************************/
+async function cekStatusHariIni(nama) {
+  const tanggal = getTanggal();
+  const docId = `${nama}_${tanggal}`;
+  const ref = db.collection("attendance").doc(docId);
+
+  try {
+    const doc = await ref.get();
+
+    if (!doc.exists) {
+      setStatus("ℹ️ Belum check-in hari ini");
+      setButtonState({ checkIn: true, checkOut: false });
+      return;
+    }
+
+    const data = doc.data();
+
+    if (data.checkin && !data.checkout) {
+      setStatus("✅ Sudah check-in, silakan check-out", "success");
+      setButtonState({ checkIn: false, checkOut: true });
+      return;
+    }
+
+    if (data.checkin && data.checkout) {
+      setStatus("✔️ Absensi hari ini sudah lengkap", "success");
+      setButtonState({ checkIn: false, checkOut: false });
+      return;
+    }
+  } catch (err) {
+    if (err.code === "permission-denied") {
+      setStatus("❌ Nama tidak terdaftar / ID tidak ada", "error");
+      setButtonState({ checkIn: false, checkOut: false });
+    }
+  }
+}
+
+/*********************************
+ * CHECK IN (1× SAJA)
  *********************************/
 async function checkIn() {
   const nama = document.getElementById("nama").value.trim();
@@ -67,7 +109,7 @@ async function checkIn() {
   const docId = `${nama}_${tanggal}`;
 
   try {
-    await db.collection("attendance").doc(docId).set({
+    await db.collection("attendance").doc(docId).create({
       nama,
       tanggal,
       checkin: getJam(),
@@ -75,18 +117,27 @@ async function checkIn() {
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
-    setStatus("✅ Berhasil check-in", "success");
+    setStatus("✅ Check-in berhasil", "success");
+    setButtonState({ checkIn: false, checkOut: true });
   } catch (err) {
-    if (err.code === "permission-denied") {
-      setStatus("❌ Nama tidak terdaftar / ID tidak ada", "error");
+    if (err.code === "already-exists") {
+      setStatus("⚠️ Kamu sudah check-in hari ini", "warning");
+      setButtonState({ checkIn: false, checkOut: true });
       return;
     }
-    throw err; // biar ditangkap global handler
+
+    if (err.code === "permission-denied") {
+      setStatus("❌ Nama tidak terdaftar / ID tidak ada", "error");
+      setButtonState({ checkIn: false, checkOut: false });
+      return;
+    }
+
+    setStatus("❌ Gagal check-in", "error");
   }
 }
 
 /*********************************
- * CHECK OUT
+ * CHECK OUT (1× SAJA)
  *********************************/
 async function checkOut() {
   const nama = document.getElementById("nama").value.trim();
@@ -108,17 +159,32 @@ async function checkOut() {
     }
 
     if (doc.data().checkout) {
-      setStatus("⚠️ Sudah check-out", "warning");
+      setStatus("⚠️ Kamu sudah check-out hari ini", "warning");
+      setButtonState({ checkIn: false, checkOut: false });
       return;
     }
 
-    await ref.update({ checkout: getJam() });
-    setStatus("✅ Berhasil check-out", "success");
+    await ref.update({
+      checkout: getJam(),
+    });
+
+    setStatus("✅ Check-out berhasil", "success");
+    setButtonState({ checkIn: false, checkOut: false });
   } catch (err) {
     if (err.code === "permission-denied") {
       setStatus("❌ Nama tidak terdaftar / ID tidak ada", "error");
+      setButtonState({ checkIn: false, checkOut: false });
       return;
     }
-    throw err;
+
+    setStatus("❌ Gagal check-out", "error");
   }
 }
+
+/*********************************
+ * AUTO CEK SAAT NAMA DIISI
+ *********************************/
+document.getElementById("nama").addEventListener("blur", () => {
+  const nama = document.getElementById("nama").value.trim();
+  if (nama) cekStatusHariIni(nama);
+});
