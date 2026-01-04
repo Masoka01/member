@@ -15,18 +15,25 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  const userSnap = await getDoc(doc(db, "users", user.uid));
-  if (!userSnap.exists() || userSnap.data().role !== "admin") {
+  const snap = await getDoc(doc(db, "users", user.uid));
+  if (!snap.exists()) {
+    alert("Data user tidak ditemukan");
+    location.href = "dashboard.html";
+    return;
+  }
+
+  const role = snap.data().role || "user";
+  if (role !== "admin") {
     alert("Akses ditolak");
     location.href = "dashboard.html";
     return;
   }
 
-  const snap = await getDocs(collection(db, "attendance"));
+  const data = await getDocs(collection(db, "attendance"));
   tableBody.innerHTML = "";
 
-  snap.forEach((doc) => {
-    const d = doc.data();
+  data.forEach((docSnap) => {
+    const d = docSnap.data();
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${d.uid}</td>

@@ -2,110 +2,17 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dashboard Absensi</title>
-
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        background: #f4f6f8;
-        margin: 0;
-        padding: 0;
-      }
-
-      header {
-        background: #2c3e50;
-        color: white;
-        padding: 15px 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      main {
-        padding: 20px;
-        max-width: 600px;
-        margin: auto;
-      }
-
-      .card {
-        background: white;
-        padding: 20px;
-        border-radius: 6px;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-        margin-bottom: 20px;
-        text-align: center;
-      }
-
-      button {
-        padding: 12px 20px;
-        margin: 8px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 16px;
-      }
-
-      button:disabled {
-        background: #ccc;
-        cursor: not-allowed;
-      }
-
-      #checkInBtn {
-        background: #27ae60;
-        color: white;
-      }
-
-      #checkOutBtn {
-        background: #e67e22;
-        color: white;
-      }
-
-      #logoutBtn {
-        background: #c0392b;
-        color: white;
-      }
-
-      #adminLink {
-        display: none;
-        color: #ecf0f1;
-        text-decoration: underline;
-        margin-left: 15px;
-      }
-
-      footer {
-        text-align: center;
-        font-size: 13px;
-        color: #888;
-        margin-top: 30px;
-      }
-    </style>
   </head>
   <body>
-    <header>
-      <div>
-        <strong>Dashboard Absensi</strong><br />
-        <small id="userEmail">Loading...</small>
-      </div>
-      <div>
-        <a id="adminLink" href="admin.html">Admin Panel</a>
-        <button id="logoutBtn">Logout</button>
-      </div>
-    </header>
+    <h2>Dashboard</h2>
+    <p id="userEmail">Loading...</p>
 
-    <main>
-      <div class="card">
-        <h2>Absensi Hari Ini</h2>
-        <p>Silakan lakukan check-in dan check-out sesuai jam kerja.</p>
+    <button id="checkInBtn">Check In</button>
+    <button id="checkOutBtn" disabled>Check Out</button>
+    <button id="logoutBtn">Logout</button>
+    <a id="adminLink" href="admin.html" style="display: none">Admin</a>
 
-        <button id="checkInBtn">Check In</button>
-        <button id="checkOutBtn" disabled>Check Out</button>
-      </div>
-    </main>
-
-    <footer>Sistem Absensi Berbasis Firebase</footer>
-
-    <!-- SCRIPT WAJIB -->
     <script type="module" src="src/attendance.js"></script>
   </body>
 </html>

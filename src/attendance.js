@@ -28,8 +28,18 @@ onAuthStateChanged(auth, async (user) => {
   currentUser = user;
   if (userEmail) userEmail.textContent = user.email;
 
-  const snap = await getDoc(doc(db, "users", user.uid));
-  if (snap.exists() && snap.data().role === "admin") {
+  // SAFE ROLE CHECK (ANTI CRASH)
+  let role = "user";
+  try {
+    const snap = await getDoc(doc(db, "users", user.uid));
+    if (snap.exists() && snap.data()?.role) {
+      role = snap.data().role;
+    }
+  } catch (e) {
+    console.error("Role check error:", e);
+  }
+
+  if (role === "admin" && adminLink) {
     adminLink.style.display = "inline";
   }
 });
@@ -37,28 +47,38 @@ onAuthStateChanged(auth, async (user) => {
 checkInBtn?.addEventListener("click", async () => {
   if (!currentUser) return;
 
-  await addDoc(collection(db, "attendance"), {
-    uid: currentUser.uid,
-    type: "checkin",
-    time: serverTimestamp(),
-  });
+  try {
+    await addDoc(collection(db, "attendance"), {
+      uid: currentUser.uid,
+      type: "checkin",
+      time: serverTimestamp(),
+    });
 
-  alert("Check-in berhasil");
-  checkInBtn.disabled = true;
-  checkOutBtn.disabled = false;
+    alert("Check-in berhasil");
+    checkInBtn.disabled = true;
+    checkOutBtn.disabled = false;
+  } catch (e) {
+    alert("Gagal check-in");
+    console.error(e);
+  }
 });
 
 checkOutBtn?.addEventListener("click", async () => {
   if (!currentUser) return;
 
-  await addDoc(collection(db, "attendance"), {
-    uid: currentUser.uid,
-    type: "checkout",
-    time: serverTimestamp(),
-  });
+  try {
+    await addDoc(collection(db, "attendance"), {
+      uid: currentUser.uid,
+      type: "checkout",
+      time: serverTimestamp(),
+    });
 
-  alert("Check-out berhasil");
-  checkOutBtn.disabled = true;
+    alert("Check-out berhasil");
+    checkOutBtn.disabled = true;
+  } catch (e) {
+    alert("Gagal check-out");
+    console.error(e);
+  }
 });
 
 logoutBtn?.addEventListener("click", async () => {
