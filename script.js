@@ -10,7 +10,6 @@ const firebaseConfig = {
   appId: "1:1000393480842:web:f36db120025c51cf312b73",
 };
 
-// INIT
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
@@ -26,6 +25,17 @@ function getJam() {
 }
 
 /*********************************
+ * CEK NAMA TERDAFTAR
+ *********************************/
+function isNamaDiizinkan(nama) {
+  return db
+    .collection("allowed_users")
+    .where("nama", "==", nama)
+    .get()
+    .then((snapshot) => !snapshot.empty);
+}
+
+/*********************************
  * CHECK IN
  *********************************/
 function checkIn() {
@@ -35,35 +45,39 @@ function checkIn() {
     return;
   }
 
-  const tanggal = getTanggal();
+  isNamaDiizinkan(nama).then((isAllowed) => {
+    if (!isAllowed) {
+      document.getElementById("status").innerText = "❌ Nama tidak terdaftar";
+      return;
+    }
 
-  db.collection("attendance")
-    .where("nama", "==", nama)
-    .where("tanggal", "==", tanggal)
-    .get()
-    .then((snapshot) => {
-      if (!snapshot.empty) {
-        document.getElementById("status").innerText =
-          "⚠️ Kamu sudah check-in hari ini";
-        return;
-      }
+    const tanggal = getTanggal();
 
-      db.collection("attendance")
-        .add({
-          nama: nama,
-          tanggal: tanggal,
-          checkin: getJam(),
-          checkout: null,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        })
-        .then(() => {
-          document.getElementById("status").innerText = "✅ Check-in berhasil";
-        });
-    })
-    .catch((err) => {
-      console.error(err);
-      alert("Gagal check-in");
-    });
+    db.collection("attendance")
+      .where("nama", "==", nama)
+      .where("tanggal", "==", tanggal)
+      .get()
+      .then((snapshot) => {
+        if (!snapshot.empty) {
+          document.getElementById("status").innerText =
+            "⚠️ Sudah check-in hari ini";
+          return;
+        }
+
+        db.collection("attendance")
+          .add({
+            nama,
+            tanggal,
+            checkin: getJam(),
+            checkout: null,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          })
+          .then(() => {
+            document.getElementById("status").innerText =
+              "✅ Check-in berhasil";
+          });
+      });
+  });
 }
 
 /*********************************
@@ -76,36 +90,40 @@ function checkOut() {
     return;
   }
 
-  const tanggal = getTanggal();
+  isNamaDiizinkan(nama).then((isAllowed) => {
+    if (!isAllowed) {
+      document.getElementById("status").innerText = "❌ Nama tidak terdaftar";
+      return;
+    }
 
-  db.collection("attendance")
-    .where("nama", "==", nama)
-    .where("tanggal", "==", tanggal)
-    .limit(1)
-    .get()
-    .then((snapshot) => {
-      if (snapshot.empty) {
-        document.getElementById("status").innerText = "❌ Belum check-in";
-        return;
-      }
+    const tanggal = getTanggal();
 
-      const doc = snapshot.docs[0];
+    db.collection("attendance")
+      .where("nama", "==", nama)
+      .where("tanggal", "==", tanggal)
+      .limit(1)
+      .get()
+      .then((snapshot) => {
+        if (snapshot.empty) {
+          document.getElementById("status").innerText = "❌ Belum check-in";
+          return;
+        }
 
-      if (doc.data().checkout) {
-        document.getElementById("status").innerText = "⚠️ Sudah check-out";
-        return;
-      }
+        const doc = snapshot.docs[0];
 
-      doc.ref
-        .update({
-          checkout: getJam(),
-        })
-        .then(() => {
-          document.getElementById("status").innerText = "✅ Check-out berhasil";
-        });
-    })
-    .catch((err) => {
-      console.error(err);
-      alert("Gagal check-out");
-    });
+        if (doc.data().checkout) {
+          document.getElementById("status").innerText = "⚠️ Sudah check-out";
+          return;
+        }
+
+        doc.ref
+          .update({
+            checkout: getJam(),
+          })
+          .then(() => {
+            document.getElementById("status").innerText =
+              "✅ Check-out berhasil";
+          });
+      });
+  });
 }
