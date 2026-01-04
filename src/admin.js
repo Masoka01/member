@@ -9,19 +9,23 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // =====================
-// FORMAT DATETIME
+// FORMATTERS
 // =====================
-function formatDateTime(timestamp) {
-  if (!timestamp) return "-";
-
-  const d = timestamp.toDate();
+function formatDate(ts) {
+  if (!ts) return "-";
+  const d = ts.toDate();
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+}
+
+function formatTime(ts) {
+  if (!ts) return "-";
+  const d = ts.toDate();
   const hh = String(d.getHours()).padStart(2, "0");
   const min = String(d.getMinutes()).padStart(2, "0");
-
-  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+  return `${hh}:${min}`;
 }
 
 // =====================
@@ -37,7 +41,7 @@ onAuthStateChanged(auth, async (user) => {
   const userSnap = await getDoc(userRef);
 
   if (!userSnap.exists() || userSnap.data().role !== "admin") {
-    alert("Akses ditolak!");
+    alert("Akses admin ditolak");
     window.location.href = "dashboard.html";
     return;
   }
@@ -46,7 +50,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // =====================
-// LOAD DATA
+// LOAD ATTENDANCE
 // =====================
 async function loadAttendance() {
   const tbody = document.getElementById("attendanceBody");
@@ -54,16 +58,21 @@ async function loadAttendance() {
 
   const snap = await getDocs(collection(db, "attendance"));
 
-  snap.forEach((doc) => {
-    const data = doc.data();
+  snap.forEach((docSnap) => {
+    const d = docSnap.data();
+
+    // SKIP DATA YANG BELUM CHECK-IN
+    if (!d.checkIn) return;
 
     const tr = document.createElement("tr");
+
     tr.innerHTML = `
-      <td>${data.email}</td>
-      <td>${data.date}</td>
-      <td>${formatDateTime(data.checkIn)}</td>
-      <td>${formatDateTime(data.checkOut)}</td>
+      <td>${d.email}</td>
+      <td>${formatDate(d.checkIn)}</td>
+      <td>${formatTime(d.checkIn)}</td>
+      <td>${formatTime(d.checkOut)}</td>
     `;
+
     tbody.appendChild(tr);
   });
 }
