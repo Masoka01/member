@@ -24,7 +24,7 @@ const db = firebase.firestore();
  * HELPER
  *********************************/
 function getTanggal() {
-  return new Date().toISOString().split("T")[0];
+  return new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 }
 
 function getJam() {
@@ -33,6 +33,10 @@ function getJam() {
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+function tampilNama(nama) {
+  return nama.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function setStatus(text, type = "info") {
@@ -50,15 +54,18 @@ function setStatus(text, type = "info") {
 }
 
 function setButtonState({ checkIn, checkOut }) {
-  document.querySelector(".btn-in").disabled = !checkIn;
-  document.querySelector(".btn-out").disabled = !checkOut;
+  const btnIn = document.querySelector(".btn-in");
+  const btnOut = document.querySelector(".btn-out");
 
-  document.querySelector(".btn-in").style.opacity = checkIn ? "1" : "0.5";
-  document.querySelector(".btn-out").style.opacity = checkOut ? "1" : "0.5";
+  btnIn.disabled = !checkIn;
+  btnOut.disabled = !checkOut;
+
+  btnIn.style.opacity = checkIn ? "1" : "0.5";
+  btnOut.style.opacity = checkOut ? "1" : "0.5";
 }
 
 /*********************************
- * CEK STATUS ABSENSI HARI INI
+ * CEK STATUS HARI INI
  *********************************/
 async function cekStatusHariIni(nama) {
   const tanggal = getTanggal();
@@ -96,10 +103,12 @@ async function cekStatusHariIni(nama) {
 }
 
 /*********************************
- * CHECK IN (1× SAJA)
+ * CHECK IN (1× PER HARI)
  *********************************/
 async function checkIn() {
-  const nama = document.getElementById("nama").value.trim();
+  const input = document.getElementById("nama");
+  const nama = input.value.trim().toLowerCase(); // 🔑 LOWERCASE
+
   if (!nama) {
     setStatus("❗ Nama wajib diisi", "warning");
     return;
@@ -110,14 +119,14 @@ async function checkIn() {
 
   try {
     await db.collection("attendance").doc(docId).create({
-      nama,
+      nama, // disimpan lowercase
       tanggal,
       checkin: getJam(),
       checkout: null,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
-    setStatus("✅ Check-in berhasil", "success");
+    setStatus(`✅ ${tampilNama(nama)} berhasil check-in`, "success");
     setButtonState({ checkIn: false, checkOut: true });
   } catch (err) {
     if (err.code === "already-exists") {
@@ -137,10 +146,12 @@ async function checkIn() {
 }
 
 /*********************************
- * CHECK OUT (1× SAJA)
+ * CHECK OUT (1× PER HARI)
  *********************************/
 async function checkOut() {
-  const nama = document.getElementById("nama").value.trim();
+  const input = document.getElementById("nama");
+  const nama = input.value.trim().toLowerCase(); // 🔑 LOWERCASE
+
   if (!nama) {
     setStatus("❗ Nama wajib diisi", "warning");
     return;
@@ -168,7 +179,7 @@ async function checkOut() {
       checkout: getJam(),
     });
 
-    setStatus("✅ Check-out berhasil", "success");
+    setStatus(`✅ ${tampilNama(nama)} berhasil check-out`, "success");
     setButtonState({ checkIn: false, checkOut: false });
   } catch (err) {
     if (err.code === "permission-denied") {
@@ -182,9 +193,9 @@ async function checkOut() {
 }
 
 /*********************************
- * AUTO CEK SAAT NAMA DIISI
+ * AUTO CEK SAAT NAMA SELESAI DIKETIK
  *********************************/
 document.getElementById("nama").addEventListener("blur", () => {
-  const nama = document.getElementById("nama").value.trim();
+  const nama = document.getElementById("nama").value.trim().toLowerCase();
   if (nama) cekStatusHariIni(nama);
 });
