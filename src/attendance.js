@@ -70,17 +70,17 @@ checkInBtn.addEventListener("click", async () => {
   const user = auth.currentUser;
   if (!user) return;
 
-  const today = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const dateString = now.toISOString().split("T")[0];
 
-  const docRef = await addDoc(collection(db, "attendance"), {
+  await addDoc(collection(db, "attendance"), {
     userId: user.uid,
     email: user.email,
-    date: today,
+    date: dateString,
     checkIn: serverTimestamp(),
     checkOut: null,
   });
 
-  attendanceDocId = docRef.id;
   statusText.innerText = "Status: Sudah Check-in";
   checkInBtn.disabled = true;
   checkOutBtn.disabled = false;

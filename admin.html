@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Admin Panel | Absensi</title>
+  </head>
+  <body>
+    <h2>Admin Panel</h2>
+    <p>Daftar seluruh absensi</p>
+
+    <table border="1" cellpadding="8">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Tanggal</th>
+          <th>Check In</th>
+          <th>Check Out</th>
+        </tr>
+      </thead>
+      <tbody id="attendanceTable">
+        <!-- data dari admin.js masuk ke sini -->
+      </tbody>
+    </table>
+
+    <br />
+    <a href="dashboard.html">← Kembali ke Dashboard</a>
+
+    <script type="module" src="./src/admin.js"></script>
+  </body>
+</html>
